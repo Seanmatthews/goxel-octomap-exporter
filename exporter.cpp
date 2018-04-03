@@ -2,11 +2,35 @@
 // Notes:
 //   - Uses Octomap 1.9.0
 
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <octomap/OcTree.h>
 #include <octomap/Pointcloud.h>
+#include <octomap/math/Vector3.h>
 #include <string>
+
+int cnt = 0;
+
+void splitPoint(octomap::Pointcloud& pc, octomath::Vector3 pt, float res, int split)
+{
+	if (split == 0)
+	{
+		cnt++;
+		pc.push_back(pt);
+		return;
+	}
+
+	res /= 4.;	
+	splitPoint(pc, {pt.x() + res, pt.y() + res, pt.z() + res}, res, split-1);
+	splitPoint(pc, {pt.x() - res, pt.y() - res, pt.z() - res}, res, split-1);
+	splitPoint(pc, {pt.x() + res, pt.y() - res, pt.z() - res}, res, split-1);
+	splitPoint(pc, {pt.x() - res, pt.y() + res, pt.z() - res}, res, split-1);
+	splitPoint(pc, {pt.x() - res, pt.y() - res, pt.z() + res}, res, split-1);
+	splitPoint(pc, {pt.x() - res, pt.y() + res, pt.z() + res}, res, split-1);
+	splitPoint(pc, {pt.x() + res, pt.y() - res, pt.z() + res}, res, split-1);
+	splitPoint(pc, {pt.x() + res, pt.y() + res, pt.z() - res}, res, split-1);	
+}
 
 
 int main(int argc, char** argv)
@@ -14,12 +38,13 @@ int main(int argc, char** argv)
 	// Processs args
 	if (argc < 3)
 	{
-		std::cerr << "Usage: exporter <infile> <outfile> <resolution> [origin] \n";
+		std::cerr << "Usage: exporter <infile> <outfile> <goxel resolution> <split x> [origin] \n";
 	}
-
-	auto infile = std::string(argv[1]);
-	auto outfile = std::string(argv[2]);
-	auto resolution = std::atof(argv[3]);
+ 
+	std::string infile = std::string(argv[1]);
+	std::string outfile = std::string(argv[2]);
+	float goxelRes = std::atof(argv[3]);
+    float split = std::atof(argv[4]);
 	
 	octomap::Pointcloud pc;
 	std::ifstream gox(infile);
@@ -31,23 +56,27 @@ int main(int argc, char** argv)
 	while (line.empty() || line.front() == '#') std::getline(gox, line);
 		
 
-	float resOffset = -0.001;
+	float resOffset = -0.00; // need this so adjacent voxels connect in octomap
 	std::string x, y, z, c;
 	while (gox >> x >> y >> z >> c)
 	{
 		if (x == "#") continue;
 
-		pc.push_back(std::stof(x) * resolution + resOffset,
-					 std::stof(y) * resolution + resOffset,
-					 std::stof(z) * resolution + resOffset);
+		octomath::Vector3 pt(std::stof(x) * goxelRes + resOffset,
+							 std::stof(y) * goxelRes + resOffset,
+							 std::stof(z) * goxelRes + resOffset);
 
-//		std::cout << std::stof(x) * resolution << " "
-//				  << std::stof(y) * resolution << " "
-//				  << std::stof(z) * resolution << std::endl;
+		// Interpolate points within a cube specified by goxelRes		
+		splitPoint(pc, pt, goxelRes, split);
 	}
+
 	
 	// Insert point cloud into new octomap
-	auto octree = octomap::OcTree(resolution);
+	float newRes = goxelRes / std::pow(2., split);
+	std::cout << "final res: " << newRes << std::endl;
+	std::cout << "writing " << cnt << " points" << std::endl;
+
+	auto octree = octomap::OcTree(newRes);
 	octree.insertPointCloud(pc, octomap::point3d(0, 0, 0));
 	
 	// Write octomap to disk
