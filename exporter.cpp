@@ -36,15 +36,16 @@ void splitPoint(octomap::Pointcloud& pc, octomath::Vector3 pt, float res, int sp
 int main(int argc, char** argv)
 {
 	// Processs args
-	if (argc < 3)
+	if (argc < 4)
 	{
-		std::cerr << "Usage: exporter <infile> <outfile> <goxel resolution> <split x> [origin] \n";
+		std::cerr << "Usage: exporter <infile> <outfile> <goxel resolution> [split] [origin] \n";
+		return -1;
 	}
  
 	std::string infile = std::string(argv[1]);
 	std::string outfile = std::string(argv[2]);
 	float goxelRes = std::atof(argv[3]);
-    float split = std::atof(argv[4]);
+    float split = argc > 4 ? std::atof(argv[4]) : 1;
 	
 	octomap::Pointcloud pc;
 	std::ifstream gox(infile);
