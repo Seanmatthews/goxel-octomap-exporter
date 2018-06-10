@@ -14,7 +14,7 @@ int cnt = 0;
 
 void splitPoint(octomap::Pointcloud& pc, octomath::Vector3 pt, float res, int split)
 {
-	if (split == 0)
+	if (split <= 0)
 	{
 		cnt++;
 		pc.push_back(pt);
@@ -36,18 +36,19 @@ void splitPoint(octomap::Pointcloud& pc, octomath::Vector3 pt, float res, int sp
 int main(int argc, char** argv)
 {
 	// Processs args
-	if (argc < 5)
+	if (argc < 4)
 	{
-		std::cerr << "Usage: exporter <infile> <outfile> <goxel res> <voxel res> [split] [offset] [origin] \n";
+		std::cerr << "Usage: exporter <infile> <outfile> <goxel res> [split] [res offset] \n";
 		return -1;
 	}
- 
-	std::string infile = std::string(argv[1]);
-	std::string outfile = std::string(argv[2]);
-	float goxelRes = std::atof(argv[3]);
-	float voxelRes = std::atof(argv[4]);
-    int split = argc > 5 ? std::atoi(argv[5]) : 1;
-	float resOffset = argc > 6 ? std::atof(argv[6]) : 0.;
+
+	int a = 1;
+	std::string infile = std::string(argv[a++]);
+	std::string outfile = std::string(argv[a++]);
+	float goxelRes = std::atof(argv[a++]);
+//	float voxelRes = std::atof(argv[a++]);
+    int split = argc > a ? std::atoi(argv[a++]) : 0;
+	float resOffset = argc > a ? std::atof(argv[a++]) : 0.;
 	
 	octomap::Pointcloud pc;
 	std::ifstream gox(infile);
@@ -65,9 +66,9 @@ int main(int argc, char** argv)
 	{
 		if (x == "#") continue;
 
-		octomath::Vector3 pt(std::stof(x) * goxelRes + resOffset,
-							 std::stof(y) * goxelRes + resOffset,
-							 std::stof(z) * goxelRes + resOffset);
+		octomath::Vector3 pt(std::stof(x) * goxelRes, // + resOffset,
+							 std::stof(y) * goxelRes, // + resOffset,
+							 std::stof(z) * goxelRes); // + resOffset);
 
 		// Interpolate points within a cube specified by goxelRes		
 		splitPoint(pc, pt, goxelRes, split);
@@ -75,12 +76,12 @@ int main(int argc, char** argv)
 
 	
 	// Insert point cloud into new octomap
-	float newRes = goxelRes / std::pow(2., split);
+	float newRes = goxelRes / std::pow(2., split) + resOffset;
 	std::cout << "final point cloud res: " << newRes << std::endl;
-	std::cout << "outputting voxel res: " << voxelRes << std::endl;
+//	std::cout << "outputting voxel res: " << voxelRes << std::endl;
 	std::cout << "writing " << cnt << " points" << std::endl;
 
-	auto octree = octomap::OcTree(voxelRes);
+	auto octree = octomap::OcTree(newRes); //formerly voxelRes
 	octree.insertPointCloud(pc, octomap::point3d(0, 0, 0));
 	
 	// Write octomap to disk
